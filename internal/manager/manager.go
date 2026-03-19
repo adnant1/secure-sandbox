@@ -19,6 +19,8 @@ var ErrInvalidStateTransition = errors.New("invalid sandbox state transition")
 
 type CreateSandboxRequest struct {
 	BundlePath string
+	Command    string
+	Args       []string
 }
 
 // Manager coordinates sandbox lifecycle operations and enforces runtime invariants.

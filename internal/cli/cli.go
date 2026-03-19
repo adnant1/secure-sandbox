@@ -48,20 +48,30 @@ func (c *CLI) Run(args []string) {
 }
 
 func (c *CLI) runCommand(args []string) {
-	if len(args) < 1 {
-		fmt.Println("missing bundle path")
+	if len(args) < 2 {
+		fmt.Println("usage: sandbox run <bundlePath> <command> [args...]")
 		return
 	}
 
 	bundlePath := args[0]
+	cmd := args[1]
+	cmdArgs := args[2:]
 	sb, err := c.mgr.CreateSandbox(manager.CreateSandboxRequest{
 		BundlePath: bundlePath,
+		Command:    cmd,
+		Args:       cmdArgs,
 	})
 	if err != nil {
-		fmt.Println("error:", err)
+		fmt.Println("error creating sandbox:", err)
 		return
 	}
-	fmt.Println("created sandbox:", sb.ID)
+
+	sb, err = c.mgr.StartSandbox(sb.ID)
+	if err != nil {
+		fmt.Println("error starting sandbox:", err)
+		return
+	}
+	fmt.Printf("started sandbox: id=%s pid=%d state=%v\n", sb.ID, sb.PID, sb.State)
 }
 
 func (c *CLI) listCommand(args []string) {
