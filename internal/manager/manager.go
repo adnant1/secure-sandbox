@@ -34,6 +34,13 @@ func New(store *state.StateStore, cfg config.Config) *Manager {
 	if store == nil {
 		panic("manager: nil state store")
 	}
+	if cfg.RootDir == "" {
+		panic("manager: root dir cannot be empty")
+	}
+	if err := os.MkdirAll(cfg.RootDir, 0o755); err != nil {
+		panic(fmt.Sprintf("manager: failed to create root dir %q: %v", cfg.RootDir, err))
+	}
+
 	return &Manager{
 		store: store,
 		cfg:   cfg,
@@ -46,21 +53,29 @@ func (m *Manager) CreateSandbox(req CreateSandboxRequest) (*sandbox.Sandbox, err
 	if req.BundlePath == "" {
 		return nil, errors.New("invalid bundle path")
 	}
+	if _, err := os.Stat(req.BundlePath); err != nil {
+		return nil, fmt.Errorf("bundle path does not exist: %w", err)
+	}
 
 	id, err := m.generateSandboxID()
 	if err != nil {
 		return nil, err
 	}
 	now := time.Now()
-	rootFSPath := filepath.Join(m.cfg.RootDir, "sandboxes", id, "rootfs")
-	logPath := filepath.Join(m.cfg.RootDir, "sandboxes", id, "logs")
-	bundlePath := req.BundlePath
+	sandboxDir := filepath.Join(m.cfg.RootDir, "sandboxes", id)
+	rootFSPath := filepath.Join(sandboxDir, "rootfs")
+	logPath := filepath.Join(sandboxDir, "log.txt")
+	if err := os.MkdirAll(rootFSPath, 0o755); err != nil {
+		return nil, fmt.Errorf("failed to create sandbox directories: %w", err)
+	}
 	sb := &sandbox.Sandbox{
 		ID:         id,
 		State:      sandbox.CREATED,
+		Command:    req.Command,
+		Args:       req.Args,
 		RootFSPath: rootFSPath,
 		LogPath:    logPath,
-		BundlePath: bundlePath,
+		BundlePath: req.BundlePath,
 		CreatedAt:  now,
 		ExitCode:   -1,
 	}
