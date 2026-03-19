@@ -81,7 +81,7 @@ func (m *Manager) GetSandbox(id string) (*sandbox.Sandbox, error) {
 	return m.store.Get(id)
 }
 
-// StopSandbox transitions a sandbox to the EXITED state.
+// StopSandbox sends a termination signal to a running sandbox process.
 func (m *Manager) StopSandbox(id string) (*sandbox.Sandbox, error) {
 	if id == "" {
 		return nil, state.ErrInvalidSandbox
@@ -91,16 +91,26 @@ func (m *Manager) StopSandbox(id string) (*sandbox.Sandbox, error) {
 	if err != nil {
 		return nil, err
 	}
-	if sb.State == sandbox.CLEANED || sb.State == sandbox.EXITED {
+	if sb.State != sandbox.RUNNING {
 		return nil, ErrInvalidStateTransition
 	}
 
-	sb.State = sandbox.EXITED
-	sb.FinishedAt = time.Now()
-	sb.ExitCode = 0
-	if err := m.store.Update(sb); err != nil {
-		return nil, err
+	// Find process by PID and send a kill signal
+	proc, err := os.FindProcess(sb.PID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find process for sandbox %q: %w", id, err)
 	}
+	err = proc.Kill()
+	if err != nil {
+		// If the process is already finished, treat as sucess because the desired
+		// outcome is already true.
+		if errors.Is(err, os.ErrProcessDone) {
+			return sb, nil
+		}
+		return nil, fmt.Errorf("failed to kill process for sandbox %q: %w", id, err)
+	}
+
+	// Wait() goroutine will handle EXITED transition
 	return sb, nil
 }
 
