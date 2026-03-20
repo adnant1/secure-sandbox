@@ -32,6 +32,7 @@ func Run(args []string) error {
 		return fmt.Errorf("init: empty command for sandbox %q", sandboxID)
 	}
 
+	// Filesystem isolation
 	if err := syscall.Mount("", "/", "", syscall.MS_PRIVATE|syscall.MS_REC, ""); err != nil {
 		return fmt.Errorf("init: failed to make mount propagation private: %w", err)
 	}
@@ -53,6 +54,11 @@ func Run(args []string) error {
 	}
 	if err := os.RemoveAll("/.oldroot"); err != nil {
 		return fmt.Errorf("init: failed to remove old root directory: %w", err)
+	}
+
+	// Process isolation
+	if err := syscall.Mount("proc", "/proc", "proc", 0, ""); err != nil {
+		return fmt.Errorf("init: failed to mount /proc: %w", err)
 	}
 
 	// Resolve the command ourselves, assuming our filesystem is correct
