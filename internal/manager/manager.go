@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"sandbox-runtime/internal/config"
+	"sandbox-runtime/internal/namespaces"
 	"sandbox-runtime/internal/sandbox"
 	"sandbox-runtime/internal/state"
 	"time"
@@ -26,6 +27,7 @@ type CreateSandboxRequest struct {
 // Manager coordinates sandbox lifecycle operations and enforces runtime invariants.
 type Manager struct {
 	store *state.StateStore
+	ns    *namespaces.NamespaceManager
 	cfg   config.Config
 }
 
@@ -43,6 +45,7 @@ func New(store *state.StateStore, cfg config.Config) *Manager {
 
 	return &Manager{
 		store: store,
+		ns:    namespaces.New(),
 		cfg:   cfg,
 	}
 }
@@ -165,11 +168,19 @@ func (m *Manager) StartSandbox(id string) (*sandbox.Sandbox, error) {
 		return nil, fmt.Errorf("open log file for sandbox %q: %w", id, err)
 	}
 
-	// Build exec.Cmd from the sandbox spec and start the process
+	// Build and configure exec.Cmd from the sandbox spec and start the process
 	cmd := exec.Command(sb.Command, sb.Args...)
 	cmd.Stdout = logFile
 	cmd.Stderr = logFile
 	cmd.Dir = sb.BundlePath
+	if err := m.ns.Configure(cmd, sb); err != nil {
+		sb.State = sandbox.FAILED
+		sb.Err = fmt.Sprintf("failed to configure namespaces: %v", err)
+		if updateErr := m.store.Update(sb); updateErr != nil {
+			return nil, fmt.Errorf("failed to configure namespaces: %w; additionally failed to persist FAILED state: %v", err, updateErr)
+		}
+		return nil, fmt.Errorf("configure namespaces for sandbox %q: %w", id, err)
+	}
 	if err := cmd.Start(); err != nil {
 		_ = logFile.Close()
 		sb.State = sandbox.FAILED
