@@ -164,53 +164,30 @@ func (m *Manager) StartSandbox(id string) (*sandbox.Sandbox, error) {
 		return nil, fmt.Errorf("sandbox %q is not in CREATED state", id)
 	}
 	if sb.Command == "" {
-		sb.State = sandbox.FAILED
-		sb.Err = "sandbox command is empty"
-		if updateErr := m.store.Update(sb); updateErr != nil {
-			return nil, fmt.Errorf("sandbox command is empty; additionally failed to persist FAILED state: %w", updateErr)
-		}
-		return nil, fmt.Errorf("sandbox %q command is empty", id)
+		return m.failSandbox(sb, "sandbox command is empty", nil, "sandbox %q command is empty", nil)
 	}
 
 	// Ensure rootfs is valid and ready, then setup the sandbox log file for stdout/stderr
 	if sb.RootFSPath == "" {
-		sb.State = sandbox.FAILED
-		sb.Err = "rootfs path is empty"
-		if updateErr := m.store.Update(sb); updateErr != nil {
-			return nil, fmt.Errorf("rootfs path is empty; additionally failed to persist FAILED state: %v", updateErr)
-		}
-		return nil, fmt.Errorf("rootfs path for sandbox %q is empty", id)
+		return m.failSandbox(sb, "rootfs path is empty", nil, "rootfs path for sandbox %q is empty", nil)
 	}
 	info, err := os.Stat(sb.RootFSPath)
 	if err != nil {
-		sb.State = sandbox.FAILED
+		sandboxErr := ""
 		if os.IsNotExist(err) {
-			sb.Err = fmt.Sprintf("rootfs path does not exist: %v", err)
+			sandboxErr = fmt.Sprintf("rootfs path does not exist: %v", err)
 		} else {
-			sb.Err = fmt.Sprintf("failed to validate rootfs path: %v", err)
+			sandboxErr = fmt.Sprintf("failed to validate rootfs path: %v", err)
 		}
-		if updateErr := m.store.Update(sb); updateErr != nil {
-			return nil, fmt.Errorf("failed to validate rootfs path: %w; additionally failed to persist FAILED state: %v", err, updateErr)
-		}
-		return nil, fmt.Errorf("failed to validate rootfs path for sandbox %q: %w", id, err)
+		return m.failSandbox(sb, sandboxErr, err, "failed to validate rootfs path for sandbox %q: %w", nil)
 	}
 	if !info.IsDir() {
-		sb.State = sandbox.FAILED
-		sb.Err = "rootfs path exists but is not a directory"
-		if updateErr := m.store.Update(sb); updateErr != nil {
-			return nil, fmt.Errorf("rootfs path is not a directory; additionally failed to persist FAILED state: %v", updateErr)
-		}
-		return nil, fmt.Errorf("rootfs path for sandbox %q is not a directory", id)
+		return m.failSandbox(sb, "rootfs path exists but is not a directory", nil, "rootfs path for sandbox %q is not a directory", nil)
 	}
 
 	logFile, err := os.OpenFile(sb.LogPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
 	if err != nil {
-		sb.State = sandbox.FAILED
-		sb.Err = fmt.Sprintf("failed to open log file: %v", err)
-		if updateErr := m.store.Update(sb); updateErr != nil {
-			return nil, fmt.Errorf("failed to open log file: %w; additionally failed to persist FAILED state: %v", err, updateErr)
-		}
-		return nil, fmt.Errorf("open log file for sandbox %q: %w", id, err)
+		return m.failSandbox(sb, fmt.Sprintf("failed to open log file: %v", err), err, "open log file for sandbox %q: %w", nil)
 	}
 
 	// Build and configure exec.Cmd from the sandbox spec and launch the bootstrap process
@@ -228,21 +205,16 @@ func (m *Manager) StartSandbox(id string) (*sandbox.Sandbox, error) {
 	cmd.Stderr = logFile
 	cmd.Dir = sb.BundlePath
 	if err := m.ns.Configure(cmd, sb); err != nil {
-		sb.State = sandbox.FAILED
-		sb.Err = fmt.Sprintf("failed to configure namespaces: %v", err)
-		if updateErr := m.store.Update(sb); updateErr != nil {
-			return nil, fmt.Errorf("failed to configure namespaces: %w; additionally failed to persist FAILED state: %v", err, updateErr)
-		}
-		return nil, fmt.Errorf("configure namespaces for sandbox %q: %w", id, err)
+		return m.failSandbox(sb, fmt.Sprintf("failed to configure namespaces: %v", err), err, "configure namespaces for sandbox %q: %w", nil)
 	}
 	if err := cmd.Start(); err != nil {
-		_ = logFile.Close()
-		sb.State = sandbox.FAILED
-		sb.Err = fmt.Sprintf("failed to start process: %v", err)
-		if updateErr := m.store.Update(sb); updateErr != nil {
-			return nil, fmt.Errorf("failed to start process: %w; additionally failed to perist FAILED state: %v", err, updateErr)
-		}
-		return nil, fmt.Errorf("start sandbox %q: %w", id, err)
+		return m.failSandbox(
+			sb,
+			fmt.Sprintf("failed to start process: %v", err),
+			err,
+			"start sandbox %q: %w",
+			func() { _ = logFile.Close() },
+		)
 	}
 	sb.PID = cmd.Process.Pid
 	sb.State = sandbox.RUNNING
@@ -300,6 +272,35 @@ func exitCodeFromWaitErr(err error) int {
 		return exitErr.ExitCode()
 	}
 	return -1
+}
+
+// failSandbox marks a sandbox as FAILED, persists it, and returns a consistent error.
+func (m *Manager) failSandbox(
+	sb *sandbox.Sandbox,
+	sandboxErr string,
+	cause error,
+	userFmt string,
+	cleanup func(),
+) (*sandbox.Sandbox, error) {
+	if cleanup != nil {
+		cleanup()
+	}
+
+	sb.State = sandbox.FAILED
+	sb.Err = sandboxErr
+
+	if updateErr := m.store.Update(sb); updateErr != nil {
+		if cause != nil {
+			return nil, fmt.Errorf("%s: %w; additionally failed to persist FAILED state: %v", sandboxErr, cause, updateErr)
+		}
+		return nil, fmt.Errorf("%s; additionally failed to persist FAILED state: %v", sandboxErr, updateErr)
+	}
+
+	if cause != nil {
+		return nil, fmt.Errorf(userFmt, sb.ID, cause)
+	}
+
+	return nil, fmt.Errorf(userFmt, sb.ID)
 }
 
 func (m *Manager) generateSandboxID() (string, error) {
