@@ -1,6 +1,0 @@
-pwd: invalid option -- 'l'
-BusyBox v1.36.1 (Ubuntu 1:1.36.1-6ubuntu3.1) multi-call binary.
-
-Usage: pwd
-
-Print the full filename of the current working directory

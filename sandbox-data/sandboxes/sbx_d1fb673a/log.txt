@@ -1,5 +1,0 @@
-total 20
-drwxrwxr-x    2 1000     1000         12288 Mar 21 19:15 bin
-drwxrwxr-x    2 1000     1000          4096 Mar 21 19:15 dev
-dr-xr-xr-x  195 0        0                0 Mar 21 19:16 proc
-drwxrwxr-x    2 1000     1000          4096 Mar 21 19:15 tmp

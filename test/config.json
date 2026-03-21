@@ -1,9 +1,0 @@
-{
-  "command": "ls",
-  "args": ["-l"],
-  "resources": {
-    "cpu": 50,
-    "memoryMB": 100,
-    "pids": 64
-  }
-}

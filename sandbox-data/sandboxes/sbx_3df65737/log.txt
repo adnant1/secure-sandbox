@@ -1,1 +1,0 @@
-init error: no such file or directory
