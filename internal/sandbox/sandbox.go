@@ -16,8 +16,9 @@ const (
 // ResourceSpec represents the hardware resources allocated for its
 // associated Sandbox
 type ResourceSpec struct {
-	CPU        int
+	CPU        int // Represents % of a single core (0-100)
 	MemoryMB   int
+	Pids       int
 	TimeoutSec int
 }
 
