@@ -19,6 +19,8 @@ type Server struct {
 	mgr        *manager.Manager
 	httpServer *http.Server
 	socketPath string
+
+	Debug bool // flag to expose internal error messages in this mode
 }
 
 // New initializes the API server with the given manager and socket path.

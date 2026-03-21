@@ -23,7 +23,7 @@ func writeError(w http.ResponseWriter, status int, msg string) {
 }
 
 // mapError converts internal errors into HTTP responses.
-func mapError(w http.ResponseWriter, err error) {
+func (s *Server) mapError(w http.ResponseWriter, err error) {
 	if err == nil {
 		return
 	}
@@ -39,6 +39,11 @@ func mapError(w http.ResponseWriter, err error) {
 		writeError(w, http.StatusConflict, err.Error())
 
 	default:
-		writeError(w, http.StatusInternalServerError, "internal server error")
+		msg := "internal server error"
+		// Expose full error if in development mode
+		if s.Debug {
+			msg = err.Error()
+		}
+		writeError(w, http.StatusInternalServerError, msg)
 	}
 }
