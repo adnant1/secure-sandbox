@@ -24,7 +24,7 @@ const socketPath = "/run/sandboxd.sock"
 // which is reponsible for all sandbox lifecyle operations (run, list, inspect, stop).
 func main() {
 	// Root directory containing all sandbox info, logs
-	absRootDir, err := filepath.Abs("./sandbox-data")
+	absRootDir, err := filepath.Abs("/var/lib/secure-sandbox")
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "failed to resolve root directory: %v\n", err)
 		os.Exit(1)
