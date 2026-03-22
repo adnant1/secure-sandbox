@@ -24,6 +24,7 @@ func (s *Server) handleSandboxes(w http.ResponseWriter, r *http.Request) {
 // handleSandboxByID handles:
 //
 // GET /sandboxes/{id} -> inspect
+// GET /sandboxes/{id}/logs -> logs
 // POST /sandboxes/{id}/stop -> stop
 func (s *Server) handleSandboxByID(w http.ResponseWriter, r *http.Request) {
 	path := strings.TrimPrefix(r.URL.Path, "/sandboxes/")
@@ -38,6 +39,11 @@ func (s *Server) handleSandboxByID(w http.ResponseWriter, r *http.Request) {
 	// /sandboxes/{id}
 	if len(parts) == 1 && r.Method == http.MethodGet {
 		s.handleInspect(w, r, id)
+		return
+	}
+	// /sandboxes/{id}/logs
+	if len(parts) == 2 && parts[1] == "logs" && r.Method == http.MethodGet {
+		s.handleLogs(w, r, id)
 		return
 	}
 	// /sandboxes/{id}/stop
@@ -99,6 +105,19 @@ func (s *Server) handleInspect(w http.ResponseWriter, r *http.Request, id string
 	}
 
 	writeJSON(w, http.StatusOK, toSandboxResponse(sb))
+}
+
+// handleLogs handles GET /sandboxes/{id}/logs
+func (s *Server) handleLogs(w http.ResponseWriter, r *http.Request, id string) {
+	logs, err := s.mgr.GetSandboxLogs(id)
+	if err != nil {
+		s.mapError(w, err)
+		return
+	}
+
+	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write([]byte(logs))
 }
 
 // handleStop handles POST /sandboxes/{id}/stop

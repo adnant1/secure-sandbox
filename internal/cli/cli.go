@@ -7,6 +7,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"strings"
@@ -123,12 +124,20 @@ func (c *CLI) listCommand() error {
 
 func (c *CLI) inspectCommand(args []string) error {
 	if len(args) < 1 {
-		return errors.New("missing sandbox id")
+		fmt.Println("usage: sandbox inspect <sandboxID> [--logs]")
+		return nil
 	}
 
 	id := args[0]
-	url := fmt.Sprintf("http://unix/sandboxes/%s", id)
 
+	// --logs flag
+	for _, a := range args[1:] {
+		if a == "--logs" {
+			return c.inspectLogs(id)
+		}
+	}
+
+	url := fmt.Sprintf("http://unix/sandboxes/%s", id)
 	resp, err := c.client.Get(url)
 	if err != nil {
 		return fmt.Errorf("request failed: %w", err)
@@ -160,6 +169,30 @@ func (c *CLI) inspectCommand(args []string) error {
 	if sb.State == "EXITED" {
 		fmt.Printf("Exit Reason: %s\n", sb.ExitReason)
 	}
+	return nil
+}
+
+func (c *CLI) inspectLogs(id string) error {
+	url := fmt.Sprintf("http://unix/sandboxes/%s/logs", id)
+
+	resp, err := c.client.Get(url)
+	if err != nil {
+		return fmt.Errorf("request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		var errResp api.ErrorResponse
+		_ = json.NewDecoder(resp.Body).Decode(&errResp)
+		return errors.New(errResp.Error)
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Errorf("read logs: %w", err)
+	}
+
+	fmt.Print(string(body))
 	return nil
 }
 

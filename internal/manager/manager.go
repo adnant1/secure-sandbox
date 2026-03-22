@@ -189,6 +189,31 @@ func (m *Manager) GetSandbox(id string) (*sandbox.Sandbox, error) {
 	return m.store.Get(id)
 }
 
+// GetSandboxLogs retrieves the logs from the given sandbox ID.
+func (m *Manager) GetSandboxLogs(id string) (string, error) {
+	if id == "" {
+		return "", state.ErrInvalidSandbox
+	}
+	if _, err := m.store.Get(id); err != nil {
+		return "", err
+	}
+
+	logPath := filepath.Join(
+		m.cfg.RootDir,
+		"sandboxes",
+		id,
+		"log.txt",
+	)
+	data, err := os.ReadFile(logPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return "", fmt.Errorf("no logs available for sandbox %q", id)
+		}
+		return "", fmt.Errorf("read logs for sandbox %q: %w", id, err)
+	}
+	return string(data), nil
+}
+
 // StopSandbox sends a termination signal to a running sandbox process.
 func (m *Manager) StopSandbox(id string) (*sandbox.Sandbox, error) {
 	if id == "" {
