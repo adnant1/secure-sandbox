@@ -16,9 +16,10 @@ func toManagerCreateRequest(req CreateSandboxRequest) manager.CreateSandboxReque
 		req.Resources.Pids != 0 {
 
 		resources = &sandbox.ResourceSpec{
-			MemoryMB: req.Resources.MemoryMB,
-			CPU:      req.Resources.CPU,
-			Pids:     req.Resources.Pids,
+			MemoryMB:   req.Resources.MemoryMB,
+			CPU:        req.Resources.CPU,
+			Pids:       req.Resources.Pids,
+			TimeoutSec: req.Resources.TimeoutSec,
 		}
 	}
 
@@ -46,9 +47,10 @@ func toSandboxResponse(sb *sandbox.Sandbox) SandboxResponse {
 		Args:    sb.Args,
 
 		Resources: ResourceOverrides{
-			MemoryMB: sb.Resources.MemoryMB,
-			CPU:      sb.Resources.CPU,
-			Pids:     sb.Resources.Pids,
+			MemoryMB:   sb.Resources.MemoryMB,
+			CPU:        sb.Resources.CPU,
+			Pids:       sb.Resources.Pids,
+			TimeoutSec: sb.Resources.TimeoutSec,
 		},
 
 		CreatedAt:  formatTime(sb.CreatedAt),
