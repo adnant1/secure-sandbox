@@ -146,7 +146,20 @@ func (c *CLI) inspectCommand(args []string) error {
 		return fmt.Errorf("decode response: %w", err)
 	}
 
-	fmt.Printf("ID: %s\nState: %s\n", sb.ID, sb.State)
+	fmt.Printf("ID: %s\n", sb.ID)
+	fmt.Printf("State: %s\n", sb.State)
+	if sb.PID != 0 {
+		fmt.Printf("PID: %d\n", sb.PID)
+	}
+	if sb.StartedAt != "" {
+		fmt.Printf("Started At: %s\n", sb.StartedAt)
+	}
+	if sb.FinishedAt != "" {
+		fmt.Printf("Finished At: %s\n", sb.FinishedAt)
+	}
+	if sb.State == "EXITED" {
+		fmt.Printf("Exit Reason: %s\n", sb.ExitReason)
+	}
 	return nil
 }
 
