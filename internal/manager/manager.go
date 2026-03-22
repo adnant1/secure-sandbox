@@ -54,6 +54,9 @@ func New(store *state.StateStore, cg *cgroups.ResourceManager, cfg config.Config
 	if cfg.RootDir == "" {
 		panic("manager: root dir cannot be empty")
 	}
+	if cfg.InitBinaryPath == "" {
+		panic("manager: init binary path cannot be empty")
+	}
 	if err := os.MkdirAll(cfg.RootDir, 0o755); err != nil {
 		panic(fmt.Sprintf("manager: failed to create root dir %q: %v", cfg.RootDir, err))
 	}
@@ -263,7 +266,7 @@ func (m *Manager) StartSandbox(id string) (*sandbox.Sandbox, error) {
 	// Build and configure exec.Cmd from the sandbox spec and launch the bootstrap process
 	// so the child can perform namespace + filesystem setup before execing the workload.
 	cmd := exec.Command(
-		"/proc/self/exe",
+		m.cfg.InitBinaryPath,
 		append([]string{
 			"init",
 			sb.ID,

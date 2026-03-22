@@ -29,9 +29,18 @@ func main() {
 		fmt.Fprintf(os.Stderr, "failed to resolve root directory: %v\n", err)
 		os.Exit(1)
 	}
+
 	cfg := config.Config{
 		RootDir: absRootDir,
 	}
+
+	initBinaryPath, err := resolveInitBinaryPath(cfg.InitBinaryPath)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "failed to resolve init binary path: %v\n", err)
+		os.Exit(1)
+	}
+	cfg.InitBinaryPath = initBinaryPath
+
 	store := state.New()
 	cg := cgroups.New("/sys/fs/cgroup")
 	mgr := manager.New(store, cg, cfg)
@@ -69,4 +78,45 @@ func main() {
 		fmt.Println("shutdown error:", err)
 	}
 	fmt.Println("sandboxd exited cleanly")
+}
+
+// resolveInitBinaryPath resolves the init-process executable path using a strict order:
+// 1) explicit config value, 2) sibling "sandbox" binary next to sandboxd, 3) fail.
+func resolveInitBinaryPath(configValue string) (string, error) {
+	// Caller-provided config value.
+	if configValue != "" {
+		if !filepath.IsAbs(configValue) {
+			absPath, err := filepath.Abs(configValue)
+			if err != nil {
+				return "", fmt.Errorf("resolve configured init binary path: %w", err)
+			}
+			configValue = absPath
+		}
+
+		// Validate the configured path exists and is a file.
+		info, err := os.Stat(configValue)
+		if err != nil {
+			return "", fmt.Errorf("configured init binary path invalid: %w", err)
+		}
+		if info.IsDir() {
+			return "", fmt.Errorf("configured init binary path points to a directory: %s", configValue)
+		}
+		return configValue, nil
+	}
+
+	exePath, err := os.Executable()
+	if err != nil {
+		return "", fmt.Errorf("resolve sandboxd executable path: %w", err)
+	}
+	// Look for the sibling binary "sandbox" in the same directory
+	siblingPath := filepath.Join(filepath.Dir(exePath), "sandbox")
+	info, err := os.Stat(siblingPath)
+	if err != nil {
+		return "", fmt.Errorf("init binary not configured and sibling binary not found at %s: %w", siblingPath, err)
+	}
+	if info.IsDir() {
+		return "", fmt.Errorf("sibling init binary path is a directory: %s", siblingPath)
+	}
+
+	return siblingPath, nil
 }

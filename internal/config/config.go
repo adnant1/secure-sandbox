@@ -1,5 +1,6 @@
 package config
 
 type Config struct {
-	RootDir string
+	RootDir        string
+	InitBinaryPath string
 }
