@@ -203,6 +203,11 @@ func (m *Manager) StopSandbox(id string) (*sandbox.Sandbox, error) {
 		return nil, ErrInvalidStateTransition
 	}
 
+	sb.ExitReason = sandbox.ExitReasonStopped
+	if err := m.store.Update(sb); err != nil {
+		return nil, err
+	}
+
 	// Find process by PID and send a kill signal
 	proc, err := os.FindProcess(sb.PID)
 	if err != nil {
@@ -218,7 +223,7 @@ func (m *Manager) StopSandbox(id string) (*sandbox.Sandbox, error) {
 		return nil, fmt.Errorf("failed to kill process for sandbox %q: %w", id, err)
 	}
 
-	// Wait() goroutine will handle EXITED transition
+	// superviseExecution will handle EXITED transition
 	return sb, nil
 }
 
@@ -371,11 +376,22 @@ func (m *Manager) superviseExecution(id string, cmd *exec.Cmd, logFile *os.File)
 		curr.State = sandbox.EXITED
 		curr.FinishedAt = time.Now()
 		curr.ExitCode = exitCodeFromWaitErr(waitErr)
+
+		if curr.ExitReason == sandbox.ExitReasonStopped {
+			curr.Err = "stopped by user"
+			_ = m.store.Update(curr)
+			return
+		}
 		switch reason {
 		case "timeout":
+			curr.ExitReason = sandbox.ExitReasonTimeout
 			curr.Err = "timeout exceeded"
 		case "wait-error":
+			curr.ExitReason = sandbox.ExitReasonError
 			curr.Err = fmt.Sprintf("wait error: %v", waitErr)
+		case "completed":
+			curr.ExitReason = sandbox.ExitReasonCompleted
+			curr.Err = ""
 		default:
 			curr.Err = ""
 		}

@@ -47,8 +47,9 @@ type SandboxResponse struct {
 	StartedAt  string `json:"startedAt,omitempty"`
 	FinishedAt string `json:"finishedAt,omitempty"`
 
-	ExitCode *int   `json:"exitCode,omitempty"`
-	Error    string `json:"error,omitempty"`
+	ExitReason string `json:"exitReason,omitempty"`
+	ExitCode   *int   `json:"exitCode,omitempty"`
+	Error      string `json:"error,omitempty"`
 }
 
 // ErrorResponse represents a structured API error.

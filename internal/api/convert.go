@@ -55,8 +55,9 @@ func toSandboxResponse(sb *sandbox.Sandbox) SandboxResponse {
 		StartedAt:  formatTime(sb.StartedAt),
 		FinishedAt: formatTime(sb.FinishedAt),
 
-		ExitCode: exitCode,
-		Error:    sb.Err,
+		ExitReason: string(sb.ExitReason),
+		ExitCode:   exitCode,
+		Error:      sb.Err,
 	}
 }
 

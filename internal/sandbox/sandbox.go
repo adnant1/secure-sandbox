@@ -4,6 +4,15 @@ import (
 	"time"
 )
 
+type ExitReason string
+
+const (
+	ExitReasonCompleted ExitReason = "Completed"
+	ExitReasonTimeout   ExitReason = "Timeout"
+	ExitReasonStopped   ExitReason = "Stopped"
+	ExitReasonError     ExitReason = "Error"
+)
+
 type SandboxState int
 
 const (
@@ -56,6 +65,7 @@ type Sandbox struct {
 	CreatedAt  time.Time
 	StartedAt  time.Time
 	FinishedAt time.Time
+	ExitReason ExitReason
 	ExitCode   int
 	Err        string
 }
